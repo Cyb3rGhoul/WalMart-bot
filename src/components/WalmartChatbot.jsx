@@ -18,144 +18,99 @@ const WalmartChatbot = () => {
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
-  const currentAudioRef = useRef(null);
+  const speechSynthRef = useRef(null);
 
-  
-  const ELEVENLABS_API_KEY = import.meta.env.REACT_APP_ELEVENLABS_API_KEY;
-  const VOICE_ID = '21m00Tcm4TlvDq8ikWAM';
-  
-  const getInitialGreeting = () => {
-    const hour = new Date().getHours();
-    let timeGreeting = '';
-    
-    if (hour < 12) timeGreeting = 'Good morning';
-    else if (hour < 17) timeGreeting = 'Good afternoon';
-    else timeGreeting = 'Good evening';
-
-    return `${timeGreeting}! Welcome to Walmart AI. What can I help you with?`;
-  };
-
-  // Enhanced text-to-speech using ElevenLabs
-  const speakWithElevenLabs = async (text) => {
-    if (!isSoundEnabled || !text.trim()) return;
-    
-    // Stop any current audio
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
-      currentAudioRef.current = null;
-    }
-
-    setIsSpeaking(true);
-
-    try {
-      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
-        method: 'POST',
-        headers: {
-          'Accept': 'audio/mpeg',
-          'Content-Type': 'application/json',
-          'xi-api-key': ELEVENLABS_API_KEY
-        },
-        body: JSON.stringify({
-          text: text,
-          model_id: 'eleven_monolingual_v1',
-          voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.8,
-            style: 0.0,
-            use_speaker_boost: true
-          }
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('ElevenLabs API request failed');
-      }
-
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
+  // Initialize speech synthesis
+  useEffect(() => {
+    if ('speechSynthesis' in window) {
+      speechSynthRef.current = window.speechSynthesis;
       
-      currentAudioRef.current = audio;
-
-      audio.onended = () => {
-        setIsSpeaking(false);
-        URL.revokeObjectURL(audioUrl);
-        currentAudioRef.current = null;
+      // Load voices
+      const loadVoices = () => {
+        const voices = speechSynthRef.current.getVoices();
+        console.log('Available voices:', voices);
       };
-
-      audio.onerror = () => {
-        console.error('Audio playback error');
-        setIsSpeaking(false);
-        URL.revokeObjectURL(audioUrl);
-        currentAudioRef.current = null;
-        // Fallback to browser TTS
-        fallbackToSystemTTS(text);
-      };
-
-      await audio.play();
-    } catch (error) {
-      console.error('ElevenLabs TTS error:', error);
-      setIsSpeaking(false);
-      // Fallback to system TTS
-      fallbackToSystemTTS(text);
+      
+      speechSynthRef.current.addEventListener('voiceschanged', loadVoices);
+      loadVoices();
+    } else {
+      console.warn('Speech synthesis not supported in this browser');
     }
-  };
 
-  // Fallback to system TTS if ElevenLabs fails
-  const fallbackToSystemTTS = (text) => {
-    if (!('speechSynthesis' in window)) return;
+    return () => {
+      if (speechSynthRef.current) {
+        speechSynthRef.current.cancel();
+      }
+    };
+  }, []);
+
+  // Function to speak text
+  const speakText = (text) => {
+    if (!isSoundEnabled || !speechSynthRef.current || !text.trim()) return;
+
+    // Cancel any ongoing speech
+    speechSynthRef.current.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    const voices = window.speechSynthesis.getVoices();
     
-    // Select best available voice
-    const preferredVoice = voices.find(voice => 
-      voice.name.includes('Google') && voice.lang.startsWith('en')
-    ) || voices.find(voice => 
-      voice.lang.startsWith('en-US')
-    ) || voices.find(voice => 
-      voice.lang.startsWith('en')
-    );
+    // Get available voices
+    const voices = speechSynthRef.current.getVoices();
+    
+    // Try to find a good quality English voice
+    const preferredVoices = [
+      voices.find(voice => voice.name.includes('Google') && voice.lang.startsWith('en') && voice.name.includes('Female')),
+      voices.find(voice => voice.name.includes('Microsoft') && voice.lang.startsWith('en') && voice.name.includes('Zira')),
+      voices.find(voice => voice.name.includes('Alex') && voice.lang.startsWith('en')),
+      voices.find(voice => voice.name.includes('Samantha') && voice.lang.startsWith('en')),
+      voices.find(voice => voice.lang.startsWith('en-US')),
+      voices.find(voice => voice.lang.startsWith('en')),
+      voices[0]
+    ].filter(Boolean);
 
-    if (preferredVoice) utterance.voice = preferredVoice;
-    
-    utterance.rate = 0.9;
-    utterance.pitch = 1.0;
+    if (preferredVoices.length > 0) {
+      utterance.voice = preferredVoices[0];
+    }
+
+    utterance.rate = 0.9; 
+    utterance.pitch = 1.0; 
     utterance.volume = 0.8;
 
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
+    utterance.onstart = () => {
+      setIsSpeaking(true);
+    };
 
-    window.speechSynthesis.speak(utterance);
+    utterance.onend = () => {
+      setIsSpeaking(false);
+    };
+
+    utterance.onerror = (event) => {
+      console.error('Speech synthesis error:', event.error);
+      setIsSpeaking(false);
+    };
+
+    speechSynthRef.current.speak(utterance);
   };
 
-  // Stop speaking function
   const stopSpeaking = () => {
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
-      currentAudioRef.current = null;
+    if (speechSynthRef.current) {
+      speechSynthRef.current.cancel();
+      setIsSpeaking(false);
     }
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-    setIsSpeaking(false);
   };
 
   useEffect(() => {
     if (!isLoading && messages.length === 0) {
       const welcomeMessage = {
         id: 1,
-        text: getInitialGreeting(),
+        text: "Hello! I'm your Walmart AI Assistant.",
         isBot: true,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages([welcomeMessage]);
       
-      // Speak welcome message after a short delay
       setTimeout(() => {
-        speakWithElevenLabs(welcomeMessage.text);
-      }, 800);
+        speakText(welcomeMessage.text);
+      }, 100);
     }
   }, [isLoading, messages.length]);
 
@@ -175,10 +130,6 @@ const WalmartChatbot = () => {
       if (selectedFile && selectedFile.type.startsWith('image/')) {
         const url = getFilePreview(selectedFile);
         if (url) URL.revokeObjectURL(url);
-      }
-      // Cleanup audio on unmount
-      if (currentAudioRef.current) {
-        currentAudioRef.current.pause();
       }
     };
   }, [selectedFile]);
@@ -211,39 +162,35 @@ const WalmartChatbot = () => {
       setMessages(prev => [...prev, botMessage]);
       setIsTyping(false);
       
-      // Speak the bot's response with ElevenLabs
+      // Speak the bot's response if sound is enabled
       setTimeout(() => {
-        speakWithElevenLabs(response);
-      }, 400);
+        speakText(response);
+      }, 300);
     }, Math.random() * 1000 + 1500);
   };
 
   const generateResponse = (message) => {
     const lower = message.toLowerCase();
     if (lower.includes('track') || lower.includes('order')) {
-      return "I'd be happy to help you track your order! Please provide your order number, and I'll get you the latest shipping information and estimated delivery date.";
-    } else if (lower.includes('deal') || lower.includes('discount') || lower.includes('sale')) {
-      return "Great news! We have amazing deals today. I can show you up to 50% off on electronics, 30% off home goods, and special rollback prices on groceries. Which category interests you most?";
-    } else if (lower.includes('product') || lower.includes('search') || lower.includes('find')) {
-      return "I'd love to help you find the perfect product! What are you shopping for today? I can search our entire inventory, compare prices, and even suggest similar items you might like.";
-    } else if (lower.includes('store') || lower.includes('location') || lower.includes('hours')) {
-      return "Let me help you find your nearest Walmart store. I can provide store hours, contact information, available services, and even check if specific items are in stock at your local store.";
-    } else if (lower.includes('price') || lower.includes('cost') || lower.includes('compare')) {
-      return "I'm excellent at price comparisons! I can help you find the best deals, compare similar products, and even alert you to price drops on items you're interested in.";
-    } else if (lower.includes('return') || lower.includes('refund') || lower.includes('exchange')) {
-      return "No problem with returns! I can guide you through our easy return process. What item would you like to return? I'll help you check the return policy and find the best return method for you.";
-    } else if (lower.includes('list') || lower.includes('saved') || lower.includes('favorite')) {
-      return "Here's your saved shopping list with 5 items including organic bananas, whole grain bread, and your favorite coffee. Would you like to add more items, remove something, or are you ready to add these to your cart?";
-    } else if (lower.includes('cart') || lower.includes('checkout') || lower.includes('buy')) {
-      return "Perfect! Your cart currently has 3 items totaling $45.99. I can help you apply any available coupons, choose delivery or pickup options, and guide you through a quick checkout. Ready to proceed?";
-    } else if (lower.includes('payment') || lower.includes('history') || lower.includes('account')) {
-      return "Here's your recent account activity. Your last purchase was $23.45 for groceries on June 15th. I can help you view detailed receipts, track rewards, or update your payment methods.";
-    } else if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey')) {
-      return "Hello there! It's wonderful to meet you. I'm your dedicated Walmart shopping assistant, and I'm here to make your experience fantastic. How can I help you save money and time today?";
-    } else if (lower.includes('thank') || lower.includes('thanks')) {
-      return "You're very welcome! I'm always happy to help. Is there anything else I can assist you with today? I'm here whenever you need support with your shopping.";
+      return "Please provide your order number to track your shipment.";
+    } else if (lower.includes('deal') || lower.includes('discount')) {
+      return "Here are today's best deals! You can save up to 50% on electronics and home goods.";
+    } else if (lower.includes('product') || lower.includes('search')) {
+      return "I'd be happy to help you find products! What are you looking for today?";
+    } else if (lower.includes('store') || lower.includes('location')) {
+      return "Let me help you find nearby Walmart stores with their hours and contact information.";
+    } else if (lower.includes('price') || lower.includes('cost')) {
+      return "I can help you compare prices and find the best deals available.";
+    } else if (lower.includes('return') || lower.includes('refund')) {
+      return "I can assist you with returns and refunds. What item would you like to return?";
+    } else if (lower.includes('list') || lower.includes('saved')) {
+      return "Here's your saved shopping list with 5 items. Would you like to add anything else?";
+    } else if (lower.includes('cart') || lower.includes('checkout')) {
+      return "Your cart has 3 items totaling $45.99. Ready to proceed to checkout?";
+    } else if (lower.includes('payment') || lower.includes('history')) {
+      return "Here's your recent payment history. Your last transaction was $23.45 on groceries.";
     } else {
-      return "I'm here to make your Walmart shopping experience amazing! Whether you need help finding products, checking prices, tracking orders, or discovering great deals, just let me know. What would you like to explore today?";
+      return "I'm here to help with all your shopping needs! Feel free to ask about products, orders, or store information.";
     }
   };
 
@@ -279,33 +226,31 @@ const WalmartChatbot = () => {
   const handleQuickAction = (message) => sendMessage(message);
   
   const clearChat = () => {
+    // Stop any ongoing speech
     stopSpeaking();
     
     const clearMessage = {
       id: 1,
-      text: "Chat cleared! I'm ready to help you with fresh shopping assistance. What can I do for you today?",
+      text: "Chat cleared! How can I assist you again?",
       isBot: true,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     
     setMessages([clearMessage]);
     
+    // Speak clear message
     setTimeout(() => {
-      speakWithElevenLabs(clearMessage.text);
-    }, 400);
+      speakText(clearMessage.text);
+    }, 300);
   };
 
   const toggleSound = () => {
     const newSoundState = !isSoundEnabled;
     setIsSoundEnabled(newSoundState);
     
+    // Stop speaking if sound is disabled
     if (!newSoundState) {
       stopSpeaking();
-    } else {
-      // Welcome back message
-      setTimeout(() => {
-        speakWithElevenLabs("Voice assistance is now enabled. I'm ready to speak my responses to you!");
-      }, 300);
     }
   };
 
@@ -327,14 +272,8 @@ const WalmartChatbot = () => {
                 <h1 className="text-xl font-bold text-white flex items-center">
                   Walmart AI Assistant <Sparkles className="w-4 h-4 ml-2 text-slate-300" />
                 </h1>
-                <p className="text-slate-200 text-sm flex items-center">
-                  Your personal shopping companion
-                  {isSpeaking && (
-                    <span className="ml-2 flex items-center text-emerald-300">
-                      <span className="animate-pulse">🎵</span>
-                      <span className="ml-1">Speaking...</span>
-                    </span>
-                  )}
+                <p className="text-slate-200 text-sm">
+                  Your shopping companion {isSpeaking && <span className="text-emerald-300">• Speaking...</span>}
                 </p>
               </div>
             </div>
@@ -346,7 +285,7 @@ const WalmartChatbot = () => {
                     ? 'bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30' 
                     : 'bg-white/10 hover:bg-white/20'
                 } ${isSpeaking ? 'animate-pulse' : ''}`}
-                title={isSoundEnabled ? 'AI Voice Enabled - Click to mute' : 'AI Voice Disabled - Click to enable'}
+                title={isSoundEnabled ? 'Sound On - Click to mute' : 'Sound Off - Click to enable'}
               >
                 {isSoundEnabled ? 
                   <Volume2 className="w-4 h-4 text-emerald-300" /> : 
@@ -362,9 +301,9 @@ const WalmartChatbot = () => {
           <div className="bg-gray-50/50 border-b border-gray-100 px-6 py-4">
             <div className="flex space-x-3 overflow-x-auto scrollbar-hide">
               {[
-                { icon: List, text: "See Your List", message: "Show me my saved shopping list and favorite items" },
-                { icon: ShoppingCart, text: "Open Cart & Checkout", message: "Open my cart and help me proceed to checkout" },
-                { icon: CreditCard, text: "Account & Orders", message: "Show me my account details and recent order history" }
+                { icon: List, text: "See Your List", message: "Show me my saved list and items" },
+                { icon: ShoppingCart, text: "Open Cart & Checkout", message: "Open my cart and proceed to checkout" },
+                { icon: CreditCard, text: "Payment History", message: "Show me my payment history and transactions" }
               ].map((action, index) => (
                 <button
                   key={index}
@@ -430,7 +369,7 @@ const WalmartChatbot = () => {
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Ask me anything about shopping, deals, orders..."
+                  placeholder="Ask me anything..."
                   className="w-full px-4 py-3 border border-gray-200 rounded-2xl resize-none bg-white/90 min-h-[48px] max-h-32 scrollbar-hide overflow-y-hidden"
                   rows="1"
                 />
