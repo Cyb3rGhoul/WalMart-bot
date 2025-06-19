@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Image, Paperclip, RotateCcw, Volume2, VolumeX, Sparkles, ShoppingCart, Package, DollarSign, MapPin, Star, Heart } from 'lucide-react';
+import { Send, Image, Paperclip, RotateCcw, Volume2, VolumeX, Sparkles, ShoppingCart, List, CreditCard } from 'lucide-react';
 import Preloader from './Preloader';
 import Message from './Message';
 import VoiceRecorder from './VoiceRecorder';
+import { TbBrandWalmart } from 'react-icons/tb';
 
 const WalmartChatbot = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -38,6 +39,15 @@ const WalmartChatbot = () => {
       textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
     }
   }, [inputValue]);
+
+  useEffect(() => {
+    return () => {
+      if (selectedFile && selectedFile.type.startsWith('image/')) {
+        const url = getFilePreview(selectedFile);
+        if (url) URL.revokeObjectURL(url);
+      }
+    };
+  }, [selectedFile]);
 
   const sendMessage = (messageText) => {
     if (!messageText.trim() && !selectedFile) return;
@@ -85,6 +95,12 @@ const WalmartChatbot = () => {
       return "I'm here to help with anything shopping related!";
     }
   };
+  const getFilePreview = (file) => {
+    if (file && file.type.startsWith('image/')) {
+      return URL.createObjectURL(file);
+    }
+    return null;
+  };
 
   const handleSendMessage = () => sendMessage(inputValue);
   const handleKeyPress = (e) => {
@@ -128,7 +144,7 @@ const WalmartChatbot = () => {
             <div className="flex items-center space-x-4">
               <div className="relative">
                 <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-lg">
-                  <ShoppingCart className="w-6 h-6 text-slate-700" />
+                  <TbBrandWalmart className="w-full h-8 text-slate-700" />
                 </div>
                 <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white shadow-sm"></div>
               </div>
@@ -152,12 +168,9 @@ const WalmartChatbot = () => {
           <div className="bg-gray-50/50 border-b border-gray-100 px-6 py-4">
             <div className="flex space-x-3 overflow-x-auto scrollbar-hide">
               {[
-                { icon: Package, text: "Track Orders", message: "I need help tracking my order" },
-                { icon: DollarSign, text: "Best Deals", message: "Show me the best deals available today" },
-                { icon: ShoppingCart, text: "Find Products", message: "I want to find specific products" },
-                { icon: MapPin, text: "Store Info", message: "I need store information and locations" },
-                { icon: Star, text: "Reviews", message: "I want to see product reviews and ratings" },
-                { icon: Heart, text: "Wishlist", message: "Help me manage my wishlist and favorites" }
+                { icon: List, text: "See Your List", message: "Show me my saved list and items" },
+                { icon: ShoppingCart, text: "Open Cart & Checkout", message: "Open my cart and proceed to checkout" },
+                { icon: CreditCard, text: "Payment History", message: "Show me my payment history and transactions" }
               ].map((action, index) => (
                 <button
                   key={index}
@@ -183,16 +196,37 @@ const WalmartChatbot = () => {
 
           <div className="bg-white/90 backdrop-blur-sm border-t border-gray-100 p-6">
             {selectedFile && (
-              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl flex justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-blue-500 rounded-lg">
-                    <Paperclip className="w-4 h-4 text-white" />
+              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                <div className="flex justify-between items-start">
+                  <div className="flex items-start space-x-3">
+                    <div className="p-2 bg-blue-500 rounded-lg">
+                      <Paperclip className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="text-sm font-medium text-blue-800">{selectedFile.name}</span>
+                        <span className="text-xs text-blue-600">
+                          ({(selectedFile.size / 1024).toFixed(1)} KB)
+                        </span>
+                      </div>
+                      {getFilePreview(selectedFile) && (
+                        <div className="mt-2">
+                          <img
+                            src={getFilePreview(selectedFile)}
+                            alt="Preview"
+                            className="max-w-32 max-h-32 rounded-lg border border-blue-200 object-cover shadow-sm"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-sm font-medium text-blue-800">{selectedFile.name}</span>
-                  </div>
+                  <button
+                    onClick={() => setSelectedFile(null)}
+                    className="text-blue-500 hover:text-blue-700 text-xl p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                  >
+                    ×
+                  </button>
                 </div>
-                <button onClick={() => setSelectedFile(null)} className="text-blue-500 text-xl p-2">×</button>
               </div>
             )}
             <div className="flex items-end space-x-3">
@@ -203,7 +237,7 @@ const WalmartChatbot = () => {
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Ask me anything..."
-                  className="w-full px-4 py-3 border border-gray-200 rounded-2xl resize-none bg-white/90 min-h-[48px] max-h-32"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-2xl resize-none bg-white/90 min-h-[48px] max-h-32 scrollbar-hide overflow-y-hidden"
                   rows="1"
                 />
               </div>

@@ -1,1 +1,10 @@
 @import "tailwindcss";
+/* For Webkit browsers (Chrome, Safari) */
+textarea::-webkit-scrollbar {
+  display: none;
+}
+
+/* For Firefox */
+textarea {
+  scrollbar-width: none;
+}

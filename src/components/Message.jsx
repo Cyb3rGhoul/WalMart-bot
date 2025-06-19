@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Bot, User, Paperclip } from 'lucide-react';
+import { TbBrandWalmart  } from 'react-icons/tb';
 
 const Message = ({ message, isBot, timestamp, isTyping = false, file }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -9,11 +10,19 @@ const Message = ({ message, isBot, timestamp, isTyping = false, file }) => {
     return () => clearTimeout(timer);
   }, []);
 
+  // ADD THIS FUNCTION to check if file is an image and create preview
+  const getFilePreview = (file) => {
+    if (file && file.type && file.type.startsWith('image/')) {
+      return URL.createObjectURL(file);
+    }
+    return null;
+  };
+
   if (isTyping) {
     return (
       <div className="flex items-start space-x-3 animate-fade-in">
         <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-sm">
-          <Bot className="w-4 h-4 text-white" />
+          <TbBrandWalmart className="w-4 h-4 text-white" />
         </div>
         <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-md px-4 py-3 shadow-sm">
           <div className="flex space-x-1">
@@ -33,15 +42,27 @@ const Message = ({ message, isBot, timestamp, isTyping = false, file }) => {
           ? 'bg-gradient-to-br from-blue-500 to-blue-600' 
           : 'bg-gradient-to-br from-gray-600 to-gray-700'
       }`}>
-        {isBot ? <Bot className="w-4 h-4 text-white" /> : <User className="w-4 h-4 text-white" />}
+        {isBot ? <TbBrandWalmart className="w-4 h-4 text-white" /> : <User className="w-4 h-4 text-white" />}
       </div>
       <div className={`max-w-xs sm:max-w-md lg:max-w-lg xl:max-w-xl ${isBot ? 'bg-white border border-gray-100 rounded-2xl rounded-tl-md' : 'bg-gradient-to-br from-gray-700 to-gray-800 rounded-2xl rounded-tr-md'} px-4 py-3 shadow-sm`}>
         {file && (
-          <div className="mb-2 p-2 bg-gray-50 rounded-lg border border-gray-100">
-            <div className="flex items-center space-x-2">
-              <Paperclip className="w-3 h-3 text-gray-500" />
-              <span className="text-xs text-gray-600">{file.name}</span>
+          <div className={`mb-2 p-2 rounded-lg border ${isBot ? 'bg-gray-50 border-gray-100' : 'bg-gray-800/50 border-gray-600'}`}>
+            <div className="flex items-center space-x-2 mb-2">
+              <Paperclip className={`w-3 h-3 ${isBot ? 'text-gray-500' : 'text-gray-400'}`} />
+              <span className={`text-xs ${isBot ? 'text-gray-600' : 'text-gray-300'}`}>{file.name}</span>
+              <span className={`text-xs ${isBot ? 'text-gray-500' : 'text-gray-400'}`}>
+                ({(file.size / 1024).toFixed(1)} KB)
+              </span>
             </div>
+            {getFilePreview(file) && (
+              <div className="mt-2">
+                <img 
+                  src={getFilePreview(file)} 
+                  alt="Uploaded image" 
+                  className="max-w-48 max-h-48 rounded-lg border border-gray-200 object-cover shadow-sm"
+                />
+              </div>
+            )}
           </div>
         )}
         <p className={`text-sm leading-relaxed ${isBot ? 'text-gray-800' : 'text-white'}`}>
