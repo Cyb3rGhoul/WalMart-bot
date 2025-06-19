@@ -298,7 +298,7 @@ const WalmartChatbot = () => {
             </div>
           </div>
 
-          <div className="bg-gray-50/50 border-b border-gray-100 px-6 py-4">
+          {/* <div className="bg-gray-50/50 border-b border-gray-100 px-6 py-4">
             <div className="flex space-x-3 overflow-x-auto scrollbar-hide">
               {[
                 { icon: List, text: "See Your List", message: "Show me my saved list and items" },
@@ -315,7 +315,7 @@ const WalmartChatbot = () => {
                 </button>
               ))}
             </div>
-          </div>
+          </div> */}
 
           <div className="flex-1 overflow-y-auto px-6 py-6">
             <div className="space-y-6">
