@@ -22,7 +22,7 @@ const WalmartChatbot = () => {
     if (!isLoading && messages.length === 0) {
       setMessages([{
         id: 1,
-        text: "Hello! I'm your Walmart AI Assistant. I can help you with product searches, price comparisons, order tracking, and store information. How can I assist you today?",
+        text: "Hello! I'm your Walmart AI Assistant.",
         isBot: true,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }]);
