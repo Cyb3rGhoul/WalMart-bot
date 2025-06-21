@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "Walmart Grocery Extension",
+  "version": "1.0.0",
+  "description": "Send grocery lists to Walmart and automatically search for items",
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://www.walmart.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.walmart.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "externally_connectable": {
+    "matches": [
+      "http://localhost:*/*",
+      "https://localhost:*/*",
+      "file://*/*"
+    ]
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Walmart Grocery Extension"
+  }
+}
