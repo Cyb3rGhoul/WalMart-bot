@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Bot, User, Paperclip } from 'lucide-react';
-import { TbBrandWalmart  } from 'react-icons/tb';
+// import { TbBrandWalmart  } from 'react-icons/tb';
 
 const Message = ({ message, isBot, timestamp, isTyping = false, file }) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -22,7 +22,7 @@ const Message = ({ message, isBot, timestamp, isTyping = false, file }) => {
     return (
       <div className="flex items-start space-x-3 animate-fade-in">
         <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-sm">
-          <TbBrandWalmart className="w-4 h-4 text-white" />
+          {/* <TbBrandWalmart className="w-4 h-4 text-white" /> */}
         </div>
         <div className="bg-white border border-gray-100 rounded-2xl rounded-tl-md px-4 py-3 shadow-sm">
           <div className="flex space-x-1">
@@ -42,7 +42,7 @@ const Message = ({ message, isBot, timestamp, isTyping = false, file }) => {
           ? 'bg-gradient-to-br from-blue-500 to-blue-600' 
           : 'bg-gradient-to-br from-gray-600 to-gray-700'
       }`}>
-        {isBot ? <TbBrandWalmart className="w-4 h-4 text-white" /> : <User className="w-4 h-4 text-white" />}
+        {/* {isBot ? <TbBrandWalmart className="w-4 h-4 text-white" /> : <User className="w-4 h-4 text-white" />} */}
       </div>
       <div className={`max-w-xs sm:max-w-md lg:max-w-lg xl:max-w-xl ${isBot ? 'bg-white border border-gray-100 rounded-2xl rounded-tl-md' : 'bg-gradient-to-br from-gray-700 to-gray-800 rounded-2xl rounded-tr-md'} px-4 py-3 shadow-sm`}>
         {file && (

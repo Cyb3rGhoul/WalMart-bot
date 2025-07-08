@@ -9,11 +9,15 @@ import os
 from werkzeug.utils import secure_filename
 import mimetypes
 import time
+from gemini_functions import respond
 
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
+
+# Global session storage
+conversation_sessions = {}
 
 cloudinary.config( 
     cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME'),
@@ -22,7 +26,6 @@ cloudinary.config(
     secure=False
 )
 
-
 @app.route("/",methods=['GET'])
 def hello():
     return {"message": "hello world"}
@@ -30,6 +33,15 @@ def hello():
 @app.route('/ping', methods=['GET'])
 def ping():
     return {"message": "system healthy"}, 200
+
+@app.route("/start_session", methods=['POST'])
+def start_session():
+    session_id = str(uuid.uuid4())
+    conversation_sessions[session_id] = {
+        "history": [],
+        "created_at": time.time()
+    }
+    return jsonify({"session_id": session_id})
 
 @app.route("/upload-doc", methods=["POST"])
 def upload_doc():
@@ -40,7 +52,12 @@ def upload_doc():
             file = request.files[f'file']
             filename = secure_filename(file.filename)
             if file and allowed_files(filename):
-                if file.content_length > eval(os.getenv("MAX_CONTENT_LENGTH")):
+                max_size = os.getenv("MAX_CONTENT_LENGTH")
+                if max_size is not None:
+                    max_size = int(max_size)
+                else:
+                    max_size = 10 * 1024 * 1024 
+                if file.content_length > max_size:
                     return jsonify({"message": "File size exceeded 10 MB limit", "status": 0, "status_code": 400, "data": []}), 400
                 mime_type, _ = mimetypes.guess_type(file.filename)
                 
@@ -94,6 +111,55 @@ def get_ocr():
     else:
         return jsonify({"error":"File type not supported"}),500 # won't hit due to upload-doc getting called first
     
+@app.route("/respond", methods=["POST"])
+def generate_response():
+    data = request.get_json()
+    message = data["user_prompt"]
+    session_id = data.get("session_id")
+
+    if not session_id:
+        return jsonify({"error": "session_id is required"}), 400
+
+    if session_id not in conversation_sessions:
+        return jsonify({"error": "Invalid or expired session_id. Please start a new session."}), 404
+
+    # Get conversation history
+    history = conversation_sessions[session_id]["history"]
+    history.append({"role": "user", "content": message})
+
+    # Build context for Gemini
+    context = "\n".join([f"{h['role']}: {h['content']}" for h in history])
+    system_prompt = (
+        """
+You are Walmart AI Assistant. You help users manage and update their grocery list, answer questions about their list, and keep track of the conversation context.
+If the latest user message contains a 'Document text:' or a document URL, analyze the text or fetch the document if possible. If it is a grocery list, extract the items and their quantities as a JSON array of key-value pairs, e.g.:
+[{\"eggs\": 2}, {\"bread\": 1}]
+If it is not a grocery list, reply with: {\"message\": \"not a grocery list\"}
+Otherwise, continue the conversation as normal, using the conversation history below to understand what the user is referring to.
+"""
+    )
+    full_prompt = f"{system_prompt}\n\nConversation so far:\n{context}\n\nRespond to the user's latest message as Walmart AI Assistant."
+    ai_response = respond(full_prompt)
+
+    # Add AI response to history
+    history.append({"role": "assistant", "content": ai_response})
+    
+    # Keep only the last 20 messages (10 user+assistant pairs)
+    conversation_sessions[session_id]["history"] = history[-20:]
+    
+    print(f"Session {session_id} history: {len(history)} messages")
+    return {"message": ai_response}
+
+@app.route("/end_session", methods=["POST"])
+def end_session():
+    data = request.get_json()
+    session_id = data.get("session_id")
+
+    if session_id in conversation_sessions:
+        del conversation_sessions[session_id]
+        return jsonify({"message": f"Session {session_id} ended and cleared."}), 200
+    else:
+        return jsonify({"error": "Session ID not found or already ended."}), 404
 
 if __name__ == "__main__":
-    app.run(port=5000)
+    app.run(port=5000, use_reloader=True)

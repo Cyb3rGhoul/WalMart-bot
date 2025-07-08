@@ -8,6 +8,8 @@ from urllib.parse import urlparse
 import unicodedata
 from gemini_functions import gemini_ocr
 
+OCR_SPACE_API_KEY = os.getenv('OCR_SPACE_API_KEY')
+
 def allowed_files(filename):
     ALLOWED_EXTENSIONS = {'jpeg', 'jpg', 'png', 'pdf'}
     return '.' in filename and \
@@ -33,6 +35,38 @@ def is_scanned_pdf(doc) -> bool:
             return False
     return True  # No real text found across all pages
 
+def ocr_space_image_url(image_url):
+    payload = {
+        'url': image_url,
+        'isOverlayRequired': False,
+        'apikey': OCR_SPACE_API_KEY,
+        'language': 'eng',
+    }
+    r = requests.post('https://api.ocr.space/parse/image', data=payload)
+    try:
+        result = r.json()
+    except Exception:
+        return ''
+    if isinstance(result, dict) and result.get('IsErroredOnProcessing') == False and result.get('ParsedResults'):
+        return result['ParsedResults'][0]['ParsedText']
+    return ''
+
+def ocr_space_image_file(image_bytes):
+    payload = {
+        'isOverlayRequired': False,
+        'apikey': OCR_SPACE_API_KEY,
+        'language': 'eng',
+    }
+    files = {'file': ('page.png', image_bytes, 'image/png')}
+    r = requests.post('https://api.ocr.space/parse/image', files=files, data=payload)
+    try:
+        result = r.json()
+    except Exception:
+        return ''
+    if isinstance(result, dict) and result.get('IsErroredOnProcessing') == False and result.get('ParsedResults'):
+        return result['ParsedResults'][0]['ParsedText']
+    return ''
+
 def extract_text_from_pdf(url: str) -> str:
     response = requests.get(url)
     if response.status_code != 200:
@@ -44,27 +78,23 @@ def extract_text_from_pdf(url: str) -> str:
     if not is_scanned_pdf(doc):
         text = "\n\n".join(page.get_text() for page in doc)
         doc.close()
+        print("NOT A SCANNED PDF")
         return text.strip()
     
-    text = ""
-    #converting each image
-    images = []
+    # SCANNED PDF: run OCR.Space on each page image
+    texts = []
     for page in doc:
         pix = page.get_pixmap(dpi=300)
-        image = Image.open(BytesIO(pix.tobytes("png")))
-        images.append(image)
-    text = gemini_ocr(images)
+        img_bytes = BytesIO(pix.tobytes("png"))
+        img_bytes.seek(0)
+        ocr_text = ocr_space_image_file(img_bytes)
+        texts.append(ocr_text)
     doc.close()
-    return text.strip()
+    return "\n".join(texts).strip()
 
 def extract_text_from_image(url: str) -> str:
-    response = requests.get(url)
-    if response.status_code != 200:
-        raise Exception(f"Failed to fetch image. Status code: {response.status_code}")
-    
-    image = Image.open(BytesIO(response.content))
-    # hit gemini func here
-    text = gemini_ocr([image])
+    # Use OCR.Space directly on the image URL
+    text = ocr_space_image_url(url)
     return text.strip()
 
 def get_file_extension_from_url(url: str) -> str:

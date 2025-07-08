@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Image, Paperclip, RotateCcw, Volume2, VolumeX, Sparkles, ShoppingCart, List, CreditCard } from 'lucide-react';
+import { Send, Image, Paperclip, RotateCcw, Volume2, VolumeX, Sparkles, ShoppingCart, List, CreditCard, Axis3DIcon, AlertCircle } from 'lucide-react';
 import Preloader from './Preloader';
 import Message from './Message';
 import VoiceRecorder from './VoiceRecorder';
-import { TbBrandWalmart } from 'react-icons/tb';
+// import { TbBrandWalmart } from 'react-icons/tb';
+import ApiService from '../services/apiService.js';
+
+// Backend API configuration
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:5000';
 
 const WalmartChatbot = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -14,11 +18,44 @@ const WalmartChatbot = () => {
   const [isSoundEnabled, setIsSoundEnabled] = useState(true);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState('checking'); // 'checking', 'connected', 'disconnected'
+  const [sessionId, setSessionId] = useState(null);
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
   const speechSynthRef = useRef(null);
+
+  // Check backend connection and start session on component mount
+  useEffect(() => {
+    checkBackendConnection();
+  }, []);
+
+  const checkBackendConnection = async () => {
+    try {
+      const result = await ApiService.checkConnection();
+      setConnectionStatus(result.connected ? 'connected' : 'disconnected');
+      if (result.connected) {
+        startNewSession();
+      }
+    } catch (error) {
+      console.error('Backend connection failed:', error);
+      setConnectionStatus('disconnected');
+    }
+  };
+
+  const startNewSession = async () => {
+    try {
+      const response = await ApiService.startSession();
+      if (response.success) {
+        setSessionId(response.session_id);
+        console.log('New session started:', response.session_id);
+      }
+    } catch (error) {
+      console.error('Failed to start session:', error);
+    }
+  };
 
   // Initialize speech synthesis
   useEffect(() => {
@@ -102,7 +139,9 @@ const WalmartChatbot = () => {
     if (!isLoading && messages.length === 0) {
       const welcomeMessage = {
         id: 1,
-        text: "Hello! I'm your Walmart AI Assistant.",
+        text: connectionStatus === 'connected' 
+          ? "Hello! I'm your Walmart AI Assistant. How can I help you today?"
+          : "Hello! I'm your Walmart AI Assistant. Note: Backend connection is currently unavailable.",
         isBot: true,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
@@ -112,7 +151,7 @@ const WalmartChatbot = () => {
         speakText(welcomeMessage.text);
       }, 100);
     }
-  }, [isLoading, messages.length]);
+  }, [isLoading, messages.length, connectionStatus]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -134,7 +173,7 @@ const WalmartChatbot = () => {
     };
   }, [selectedFile]);
 
-  const sendMessage = (messageText) => {
+  const sendMessage = async (messageText) => {
     if (!messageText.trim() && !selectedFile) return;
 
     const newMessage = {
@@ -150,47 +189,65 @@ const WalmartChatbot = () => {
     setSelectedFile(null);
     setIsTyping(true);
 
-    setTimeout(() => {
-      let response = generateResponse(messageText);
+    try {
+      let userPrompt = messageText;
+      if (selectedFile) {
+        setIsUploading(true);
+        // Step 1: Upload file
+        const uploadRes = await ApiService.uploadDocument(selectedFile);
+        setIsUploading(false);
+        if (uploadRes.success && uploadRes.documentUrl) {
+          // Step 2: Extract text from the document (PDF or image)
+          const ext = selectedFile.name.split('.').pop().toUpperCase();
+          let docText = '';
+          if (["JPG", "JPEG", "PNG", "PDF"].includes(ext)) {
+            const ocrRes = await ApiService.extractTextFromDocument(uploadRes.documentUrl);
+            if (ocrRes.success) {
+              docText = ocrRes.text;
+            }
+          }
+          // Compose the user prompt for /respond
+          userPrompt = `Document text: ${docText}\n${messageText}`;
+        } else {
+          userPrompt = 'File upload failed.';
+        }
+      }
+      // Always call /respond with session_id
+      const result = await ApiService.generateResponse(userPrompt, sessionId);
+      let displayText = '';
+      if (result.success) {
+        displayText = result.message;
+      } else {
+        // If session error, start new session and retry
+        if (result.message && result.message.includes('session')) {
+          await startNewSession();
+          const retryResult = await ApiService.generateResponse(userPrompt, sessionId);
+          displayText = retryResult.success ? retryResult.message : 'Error processing your request.';
+        } else {
+          displayText = result.message || 'Error processing your request.';
+        }
+      }
       const botMessage = {
         id: Date.now(),
-        text: response,
+        text: displayText,
         isBot: true,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
-      
       setMessages(prev => [...prev, botMessage]);
-      setIsTyping(false);
-      
-      // Speak the bot's response if sound is enabled
       setTimeout(() => {
-        speakText(response);
+        speakText(displayText);
       }, 300);
-    }, Math.random() * 1000 + 1500);
-  };
-
-  const generateResponse = (message) => {
-    const lower = message.toLowerCase();
-    if (lower.includes('track') || lower.includes('order')) {
-      return "Please provide your order number to track your shipment.";
-    } else if (lower.includes('deal') || lower.includes('discount')) {
-      return "Here are today's best deals! You can save up to 50% on electronics and home goods.";
-    } else if (lower.includes('product') || lower.includes('search')) {
-      return "I'd be happy to help you find products! What are you looking for today?";
-    } else if (lower.includes('store') || lower.includes('location')) {
-      return "Let me help you find nearby Walmart stores with their hours and contact information.";
-    } else if (lower.includes('price') || lower.includes('cost')) {
-      return "I can help you compare prices and find the best deals available.";
-    } else if (lower.includes('return') || lower.includes('refund')) {
-      return "I can assist you with returns and refunds. What item would you like to return?";
-    } else if (lower.includes('list') || lower.includes('saved')) {
-      return "Here's your saved shopping list with 5 items. Would you like to add anything else?";
-    } else if (lower.includes('cart') || lower.includes('checkout')) {
-      return "Your cart has 3 items totaling $45.99. Ready to proceed to checkout?";
-    } else if (lower.includes('payment') || lower.includes('history')) {
-      return "Here's your recent payment history. Your last transaction was $23.45 on groceries.";
-    } else {
-      return "I'm here to help with all your shopping needs! Feel free to ask about products, orders, or store information.";
+    } catch (error) {
+      console.error('Error processing message:', error);
+      const errorMessage = {
+        id: Date.now(),
+        text: "I'm sorry, I encountered an error processing your request. Please try again.",
+        isBot: true,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsTyping(false);
     }
   };
 
@@ -211,7 +268,22 @@ const WalmartChatbot = () => {
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
-    if (file) setSelectedFile(file);
+    if (file) {
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+      if (!allowedTypes.includes(file.type)) {
+        alert('Please select a valid file type: JPEG, PNG, or PDF');
+        return;
+      }
+      
+      // Validate file size (10MB limit)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File size must be less than 10MB');
+        return;
+      }
+      
+      setSelectedFile(file);
+    }
   };
 
   const handleVoiceRecording = (transcription) => {
@@ -223,8 +295,6 @@ const WalmartChatbot = () => {
     }
   };
 
-  const handleQuickAction = (message) => sendMessage(message);
-  
   const clearChat = () => {
     // Stop any ongoing speech
     stopSpeaking();
@@ -264,9 +334,12 @@ const WalmartChatbot = () => {
             <div className="flex items-center space-x-4">
               <div className="relative">
                 <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-lg">
-                  <TbBrandWalmart className="w-full h-8 text-slate-700" />
+                  {/* <TbBrandWalmart className="w-full h-8 text-slate-700" /> */}
                 </div>
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white shadow-sm"></div>
+                <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm ${
+                  connectionStatus === 'connected' ? 'bg-emerald-500' : 
+                  connectionStatus === 'disconnected' ? 'bg-red-500' : 'bg-yellow-500'
+                }`}></div>
               </div>
               <div>
                 <h1 className="text-xl font-bold text-white flex items-center">
@@ -274,6 +347,7 @@ const WalmartChatbot = () => {
                 </h1>
                 <p className="text-slate-200 text-sm">
                   Your shopping companion {isSpeaking && <span className="text-emerald-300">• Speaking...</span>}
+                  {connectionStatus === 'disconnected' && <span className="text-red-300"> • Offline</span>}
                 </p>
               </div>
             </div>
@@ -298,24 +372,26 @@ const WalmartChatbot = () => {
             </div>
           </div>
 
-          {/* <div className="bg-gray-50/50 border-b border-gray-100 px-6 py-4">
-            <div className="flex space-x-3 overflow-x-auto scrollbar-hide">
-              {[
-                { icon: List, text: "See Your List", message: "Show me my saved list and items" },
-                { icon: ShoppingCart, text: "Open Cart & Checkout", message: "Open my cart and proceed to checkout" },
-                { icon: CreditCard, text: "Payment History", message: "Show me my payment history and transactions" }
-              ].map((action, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleQuickAction(action.message)}
-                  className="flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-white border border-gray-200 hover:border-slate-300 hover:bg-slate-50 transition-all duration-200 whitespace-nowrap text-sm font-medium text-gray-700 hover:text-slate-800 hover:shadow-sm transform hover:scale-105"
-                >
-                  <action.icon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{action.text}</span>
-                </button>
-              ))}
+          {/* Connection Status Alert */}
+          {connectionStatus === 'disconnected' && (
+            <div className="bg-red-50 border-l-4 border-red-400 p-4 mx-6 mt-4 rounded-lg">
+              <div className="flex items-center">
+                <AlertCircle className="w-5 h-5 text-red-400 mr-2" />
+                <div>
+                  <p className="text-sm text-red-700">
+                    <strong>Connection Issue:</strong> Unable to connect to the AI service. 
+                    Some features may be limited.
+                  </p>
+                  <button 
+                    onClick={checkBackendConnection}
+                    className="text-sm text-red-600 hover:text-red-800 underline mt-1"
+                  >
+                    Retry connection
+                  </button>
+                </div>
+              </div>
             </div>
-          </div> */}
+          )}
 
           <div className="flex-1 overflow-y-auto px-6 py-6">
             <div className="space-y-6">
@@ -369,20 +445,40 @@ const WalmartChatbot = () => {
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Ask me anything..."
-                  className="w-full px-4 py-3 border border-gray-200 rounded-2xl resize-none bg-white/90 min-h-[48px] max-h-32 scrollbar-hide overflow-y-hidden"
+                  placeholder={connectionStatus === 'disconnected' ? "Backend unavailable..." : "Ask me anything..."}
+                  disabled={connectionStatus === 'disconnected'}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-2xl resize-none bg-white/90 min-h-[48px] max-h-32 scrollbar-hide overflow-y-hidden disabled:opacity-50 disabled:cursor-not-allowed"
                   rows="1"
                 />
               </div>
               <div className="flex items-center space-x-2">
-                <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
-                <button onClick={() => fileInputRef.current.click()} className="p-3 bg-white border border-gray-200 rounded-xl">
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileUpload} 
+                  accept=".jpg,.jpeg,.png,.pdf"
+                  className="hidden" 
+                />
+                <button 
+                  onClick={() => fileInputRef.current.click()} 
+                  disabled={connectionStatus === 'disconnected'}
+                  className="p-3 bg-white border border-gray-200 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Upload image or PDF"
+                >
                   <Image className="w-4 h-4 text-gray-600" />
                 </button>
                 <VoiceRecorder isRecording={isRecording} onToggleRecording={handleVoiceRecording} />
               </div>
-              <button onClick={handleSendMessage} disabled={!inputValue.trim() && !selectedFile} className="p-3 bg-gradient-to-r from-slate-700 to-slate-800 text-white rounded-xl">
-                <Send className="w-4 h-4" />
+              <button 
+                onClick={handleSendMessage} 
+                disabled={(!inputValue.trim() && !selectedFile) || connectionStatus === 'disconnected' || isUploading} 
+                className="p-3 bg-gradient-to-r from-slate-700 to-slate-800 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isUploading ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
               </button>
             </div>
           </div>
