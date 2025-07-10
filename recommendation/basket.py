@@ -3,8 +3,10 @@ import pandas as pd
 from mlxtend.preprocessing import TransactionEncoder
 from mlxtend.frequent_patterns import apriori, fpgrowth, association_rules
 import os
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app, supports_credentials=True, resources={r"/*": {"origins": "http://localhost:3000"}})
 
 # Function to update the dataset file with the user's cart
 def store_cart(cart, filename="GroceryStoreDataset.csv"):
@@ -84,12 +86,15 @@ def suggest_items_combined(user_cart, df, top_n=5):
 @app.route('/recommend', methods=['POST'])
 def recommend():
     data = request.get_json()
+    # print(data)
 
-    if not data or 'cart' not in data:
-        return jsonify({'error': 'Please provide a "cart" list.'}), 400
-
-    # Convert to uppercase
-    user_cart = [item.upper() for item in data['cart']]
+    # Accept both 'cart' and 'groceryList'
+    if 'cart' in data:
+        user_cart = [item.upper() for item in data['cart']]
+    elif 'groceryList' in data:
+        user_cart = [item['name'].upper() for item in data['groceryList'] if 'name' in item]
+    else:
+        return jsonify({'error': 'Please provide a "cart" list or "groceryList".'}), 400
 
     # Update CSV
     store_cart(user_cart)
@@ -106,4 +111,4 @@ def recommend():
     })
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=5050)

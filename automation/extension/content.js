@@ -272,6 +272,8 @@ async function handleProductPage() {
       // Clear the grocery list from storage
       localStorage.removeItem('groceryList');
       localStorage.removeItem('currentGroceryIndex');
+      // Notify background script to close this tab
+      chrome.runtime.sendMessage({ action: 'CLOSE_WALMART_TAB' });
     }
   } catch (error) {
     console.error('Error in handleProductPage:', error);

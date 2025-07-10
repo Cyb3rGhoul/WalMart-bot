@@ -1,25 +1,38 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Send, Image, Paperclip, RotateCcw, Volume2, VolumeX, Sparkles, ShoppingCart, List, CreditCard, Axis3DIcon, AlertCircle } from 'lucide-react';
-import Preloader from './Preloader';
-import Message from './Message';
-import VoiceRecorder from './VoiceRecorder';
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Send,
+  Image,
+  Paperclip,
+  RotateCcw,
+  Volume2,
+  VolumeX,
+  Sparkles,
+  ShoppingCart,
+  List,
+  CreditCard,
+  Axis3DIcon,
+  AlertCircle,
+} from "lucide-react";
+import Preloader from "./Preloader";
+import Message from "./Message";
+import VoiceRecorder from "./VoiceRecorder";
 // import { TbBrandWalmart } from 'react-icons/tb';
-import ApiService from '../services/apiService.js';
+import ApiService from "../services/apiService.js";
 
 // Backend API configuration
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:5000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:5000";
 
 const WalmartChatbot = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [messages, setMessages] = useState([]);
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isSoundEnabled, setIsSoundEnabled] = useState(true);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState('checking'); // 'checking', 'connected', 'disconnected'
+  const [connectionStatus, setConnectionStatus] = useState("checking"); // 'checking', 'connected', 'disconnected'
   const [sessionId, setSessionId] = useState(null);
 
   const messagesEndRef = useRef(null);
@@ -35,13 +48,13 @@ const WalmartChatbot = () => {
   const checkBackendConnection = async () => {
     try {
       const result = await ApiService.checkConnection();
-      setConnectionStatus(result.connected ? 'connected' : 'disconnected');
+      setConnectionStatus(result.connected ? "connected" : "disconnected");
       if (result.connected) {
         startNewSession();
       }
     } catch (error) {
-      console.error('Backend connection failed:', error);
-      setConnectionStatus('disconnected');
+      console.error("Backend connection failed:", error);
+      setConnectionStatus("disconnected");
     }
   };
 
@@ -50,28 +63,28 @@ const WalmartChatbot = () => {
       const response = await ApiService.startSession();
       if (response.success) {
         setSessionId(response.session_id);
-        console.log('New session started:', response.session_id);
+        console.log("New session started:", response.session_id);
       }
     } catch (error) {
-      console.error('Failed to start session:', error);
+      console.error("Failed to start session:", error);
     }
   };
 
   // Initialize speech synthesis
   useEffect(() => {
-    if ('speechSynthesis' in window) {
+    if ("speechSynthesis" in window) {
       speechSynthRef.current = window.speechSynthesis;
-      
+
       // Load voices
       const loadVoices = () => {
         const voices = speechSynthRef.current.getVoices();
-        console.log('Available voices:', voices);
+        console.log("Available voices:", voices);
       };
-      
-      speechSynthRef.current.addEventListener('voiceschanged', loadVoices);
+
+      speechSynthRef.current.addEventListener("voiceschanged", loadVoices);
       loadVoices();
     } else {
-      console.warn('Speech synthesis not supported in this browser');
+      console.warn("Speech synthesis not supported in this browser");
     }
 
     return () => {
@@ -89,27 +102,42 @@ const WalmartChatbot = () => {
     speechSynthRef.current.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    
+
     // Get available voices
     const voices = speechSynthRef.current.getVoices();
-    
+
     // Try to find a good quality English voice
     const preferredVoices = [
-      voices.find(voice => voice.name.includes('Google') && voice.lang.startsWith('en') && voice.name.includes('Female')),
-      voices.find(voice => voice.name.includes('Microsoft') && voice.lang.startsWith('en') && voice.name.includes('Zira')),
-      voices.find(voice => voice.name.includes('Alex') && voice.lang.startsWith('en')),
-      voices.find(voice => voice.name.includes('Samantha') && voice.lang.startsWith('en')),
-      voices.find(voice => voice.lang.startsWith('en-US')),
-      voices.find(voice => voice.lang.startsWith('en')),
-      voices[0]
+      voices.find(
+        (voice) =>
+          voice.name.includes("Google") &&
+          voice.lang.startsWith("en") &&
+          voice.name.includes("Female")
+      ),
+      voices.find(
+        (voice) =>
+          voice.name.includes("Microsoft") &&
+          voice.lang.startsWith("en") &&
+          voice.name.includes("Zira")
+      ),
+      voices.find(
+        (voice) => voice.name.includes("Alex") && voice.lang.startsWith("en")
+      ),
+      voices.find(
+        (voice) =>
+          voice.name.includes("Samantha") && voice.lang.startsWith("en")
+      ),
+      voices.find((voice) => voice.lang.startsWith("en-US")),
+      voices.find((voice) => voice.lang.startsWith("en")),
+      voices[0],
     ].filter(Boolean);
 
     if (preferredVoices.length > 0) {
       utterance.voice = preferredVoices[0];
     }
 
-    utterance.rate = 0.9; 
-    utterance.pitch = 1.0; 
+    utterance.rate = 0.9;
+    utterance.pitch = 1.0;
     utterance.volume = 0.8;
 
     utterance.onstart = () => {
@@ -121,7 +149,7 @@ const WalmartChatbot = () => {
     };
 
     utterance.onerror = (event) => {
-      console.error('Speech synthesis error:', event.error);
+      console.error("Speech synthesis error:", event.error);
       setIsSpeaking(false);
     };
 
@@ -139,14 +167,18 @@ const WalmartChatbot = () => {
     if (!isLoading && messages.length === 0) {
       const welcomeMessage = {
         id: 1,
-        text: connectionStatus === 'connected' 
-          ? "Hello! I'm your Walmart AI Assistant. How can I help you today?"
-          : "Hello! I'm your Walmart AI Assistant. Note: Backend connection is currently unavailable.",
+        text:
+          connectionStatus === "connected"
+            ? "Hello! I'm your Walmart AI Assistant. How can I help you today?"
+            : "Hello! I'm your Walmart AI Assistant. Note: Backend connection is currently unavailable.",
         isBot: true,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
       };
       setMessages([welcomeMessage]);
-      
+
       setTimeout(() => {
         speakText(welcomeMessage.text);
       }, 100);
@@ -154,19 +186,20 @@ const WalmartChatbot = () => {
   }, [isLoading, messages.length, connectionStatus]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height =
+        Math.min(textareaRef.current.scrollHeight, 120) + "px";
     }
   }, [inputValue]);
 
   useEffect(() => {
     return () => {
-      if (selectedFile && selectedFile.type.startsWith('image/')) {
+      if (selectedFile && selectedFile.type.startsWith("image/")) {
         const url = getFilePreview(selectedFile);
         if (url) URL.revokeObjectURL(url);
       }
@@ -180,12 +213,15 @@ const WalmartChatbot = () => {
       id: Date.now(),
       text: messageText,
       isBot: false,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      file: selectedFile
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      file: selectedFile,
     };
 
-    setMessages(prev => [...prev, newMessage]);
-    setInputValue('');
+    setMessages((prev) => [...prev, newMessage]);
+    setInputValue("");
     setSelectedFile(null);
     setIsTyping(true);
 
@@ -198,10 +234,12 @@ const WalmartChatbot = () => {
         setIsUploading(false);
         if (uploadRes.success && uploadRes.documentUrl) {
           // Step 2: Extract text from the document (PDF or image)
-          const ext = selectedFile.name.split('.').pop().toUpperCase();
-          let docText = '';
+          const ext = selectedFile.name.split(".").pop().toUpperCase();
+          let docText = "";
           if (["JPG", "JPEG", "PNG", "PDF"].includes(ext)) {
-            const ocrRes = await ApiService.extractTextFromDocument(uploadRes.documentUrl);
+            const ocrRes = await ApiService.extractTextFromDocument(
+              uploadRes.documentUrl
+            );
             if (ocrRes.success) {
               docText = ocrRes.text;
             }
@@ -209,50 +247,61 @@ const WalmartChatbot = () => {
           // Compose the user prompt for /respond
           userPrompt = `Document text: ${docText}\n${messageText}`;
         } else {
-          userPrompt = 'File upload failed.';
+          userPrompt = "File upload failed.";
         }
       }
       // Always call /respond with session_id
       const result = await ApiService.generateResponse(userPrompt, sessionId);
-      let displayText = '';
+      let displayText = "";
       if (result.success) {
         displayText = result.message;
       } else {
         // If session error, start new session and retry
-        if (result.message && result.message.includes('session')) {
+        if (result.message && result.message.includes("session")) {
           await startNewSession();
-          const retryResult = await ApiService.generateResponse(userPrompt, sessionId);
-          displayText = retryResult.success ? retryResult.message : 'Error processing your request.';
+          const retryResult = await ApiService.generateResponse(
+            userPrompt,
+            sessionId
+          );
+          displayText = retryResult.success
+            ? retryResult.message
+            : "Error processing your request.";
         } else {
-          displayText = result.message || 'Error processing your request.';
+          displayText = result.message || "Error processing your request.";
         }
       }
       const botMessage = {
         id: Date.now(),
         text: displayText,
         isBot: true,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
       };
-      setMessages(prev => [...prev, botMessage]);
+      setMessages((prev) => [...prev, botMessage]);
       setTimeout(() => {
         speakText(displayText);
       }, 300);
     } catch (error) {
-      console.error('Error processing message:', error);
+      console.error("Error processing message:", error);
       const errorMessage = {
         id: Date.now(),
         text: "I'm sorry, I encountered an error processing your request. Please try again.",
         isBot: true,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsTyping(false);
     }
   };
 
   const getFilePreview = (file) => {
-    if (file && file.type.startsWith('image/')) {
+    if (file && file.type.startsWith("image/")) {
       return URL.createObjectURL(file);
     }
     return null;
@@ -260,7 +309,7 @@ const WalmartChatbot = () => {
 
   const handleSendMessage = () => sendMessage(inputValue);
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -270,25 +319,30 @@ const WalmartChatbot = () => {
     const file = e.target.files[0];
     if (file) {
       // Validate file type
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+      const allowedTypes = [
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "application/pdf",
+      ];
       if (!allowedTypes.includes(file.type)) {
-        alert('Please select a valid file type: JPEG, PNG, or PDF');
+        alert("Please select a valid file type: JPEG, PNG, or PDF");
         return;
       }
-      
+
       // Validate file size (10MB limit)
       if (file.size > 10 * 1024 * 1024) {
-        alert('File size must be less than 10MB');
+        alert("File size must be less than 10MB");
         return;
       }
-      
+
       setSelectedFile(file);
     }
   };
 
   const handleVoiceRecording = (transcription) => {
     if (transcription) {
-      setInputValue(prev => prev + (prev ? ' ' : '') + transcription);
+      setInputValue((prev) => prev + (prev ? " " : "") + transcription);
       setIsRecording(false);
     } else {
       setIsRecording(!isRecording);
@@ -298,16 +352,19 @@ const WalmartChatbot = () => {
   const clearChat = () => {
     // Stop any ongoing speech
     stopSpeaking();
-    
+
     const clearMessage = {
       id: 1,
       text: "Chat cleared! How can I assist you again?",
       isBot: true,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
     };
-    
+
     setMessages([clearMessage]);
-    
+
     // Speak clear message
     setTimeout(() => {
       speakText(clearMessage.text);
@@ -317,7 +374,7 @@ const WalmartChatbot = () => {
   const toggleSound = () => {
     const newSoundState = !isSoundEnabled;
     setIsSoundEnabled(newSoundState);
-    
+
     // Stop speaking if sound is disabled
     if (!newSoundState) {
       stopSpeaking();
@@ -336,53 +393,72 @@ const WalmartChatbot = () => {
                 <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-lg">
                   {/* <TbBrandWalmart className="w-full h-8 text-slate-700" /> */}
                 </div>
-                <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm ${
-                  connectionStatus === 'connected' ? 'bg-emerald-500' : 
-                  connectionStatus === 'disconnected' ? 'bg-red-500' : 'bg-yellow-500'
-                }`}></div>
+                <div
+                  className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm ${
+                    connectionStatus === "connected"
+                      ? "bg-emerald-500"
+                      : connectionStatus === "disconnected"
+                      ? "bg-red-500"
+                      : "bg-yellow-500"
+                  }`}
+                ></div>
               </div>
               <div>
                 <h1 className="text-xl font-bold text-white flex items-center">
-                  Walmart AI Assistant <Sparkles className="w-4 h-4 ml-2 text-slate-300" />
+                  Walmart AI Assistant{" "}
+                  <Sparkles className="w-4 h-4 ml-2 text-slate-300" />
                 </h1>
                 <p className="text-slate-200 text-sm">
-                  Your shopping companion {isSpeaking && <span className="text-emerald-300">• Speaking...</span>}
-                  {connectionStatus === 'disconnected' && <span className="text-red-300"> • Offline</span>}
+                  Your shopping companion{" "}
+                  {isSpeaking && (
+                    <span className="text-emerald-300">• Speaking...</span>
+                  )}
+                  {connectionStatus === "disconnected" && (
+                    <span className="text-red-300"> • Offline</span>
+                  )}
                 </p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <button 
-                onClick={toggleSound} 
+              <button
+                onClick={toggleSound}
                 className={`p-2.5 rounded-xl transition-all duration-200 ${
-                  isSoundEnabled 
-                    ? 'bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30' 
-                    : 'bg-white/10 hover:bg-white/20'
-                } ${isSpeaking ? 'animate-pulse' : ''}`}
-                title={isSoundEnabled ? 'Sound On - Click to mute' : 'Sound Off - Click to enable'}
-              >
-                {isSoundEnabled ? 
-                  <Volume2 className="w-4 h-4 text-emerald-300" /> : 
-                  <VolumeX className="w-4 h-4 text-white" />
+                  isSoundEnabled
+                    ? "bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30"
+                    : "bg-white/10 hover:bg-white/20"
+                } ${isSpeaking ? "animate-pulse" : ""}`}
+                title={
+                  isSoundEnabled
+                    ? "Sound On - Click to mute"
+                    : "Sound Off - Click to enable"
                 }
+              >
+                {isSoundEnabled ? (
+                  <Volume2 className="w-4 h-4 text-emerald-300" />
+                ) : (
+                  <VolumeX className="w-4 h-4 text-white" />
+                )}
               </button>
-              <button onClick={clearChat} className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20">
+              <button
+                onClick={clearChat}
+                className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20"
+              >
                 <RotateCcw className="w-4 h-4 text-white" />
               </button>
             </div>
           </div>
 
           {/* Connection Status Alert */}
-          {connectionStatus === 'disconnected' && (
+          {connectionStatus === "disconnected" && (
             <div className="bg-red-50 border-l-4 border-red-400 p-4 mx-6 mt-4 rounded-lg">
               <div className="flex items-center">
                 <AlertCircle className="w-5 h-5 text-red-400 mr-2" />
                 <div>
                   <p className="text-sm text-red-700">
-                    <strong>Connection Issue:</strong> Unable to connect to the AI service. 
-                    Some features may be limited.
+                    <strong>Connection Issue:</strong> Unable to connect to the
+                    AI service. Some features may be limited.
                   </p>
-                  <button 
+                  <button
                     onClick={checkBackendConnection}
                     className="text-sm text-red-600 hover:text-red-800 underline mt-1"
                   >
@@ -396,9 +472,26 @@ const WalmartChatbot = () => {
           <div className="flex-1 overflow-y-auto px-6 py-6">
             <div className="space-y-6">
               {messages.map((msg) => (
-                <Message key={msg.id} message={msg.text} isBot={msg.isBot} timestamp={msg.timestamp} file={msg.file} />
+                <Message
+                  key={msg.id}
+                  message={msg.text}
+                  isBot={msg.isBot}
+                  timestamp={msg.timestamp}
+                  file={msg.file}
+                  sessionId={sessionId}
+                  setMessages={setMessages}
+                />
               ))}
-              {isTyping && <Message message="" isBot={true} timestamp="" isTyping={true} />}
+              {isTyping && (
+                <Message
+                  message=""
+                  isBot={true}
+                  timestamp=""
+                  isTyping={true}
+                  sessionId={sessionId}
+                  setMessages={setMessages}
+                />
+              )}
               <div ref={messagesEndRef} />
             </div>
           </div>
@@ -413,7 +506,9 @@ const WalmartChatbot = () => {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-2">
-                        <span className="text-sm font-medium text-blue-800">{selectedFile.name}</span>
+                        <span className="text-sm font-medium text-blue-800">
+                          {selectedFile.name}
+                        </span>
                         <span className="text-xs text-blue-600">
                           ({(selectedFile.size / 1024).toFixed(1)} KB)
                         </span>
@@ -445,33 +540,44 @@ const WalmartChatbot = () => {
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder={connectionStatus === 'disconnected' ? "Backend unavailable..." : "Ask me anything..."}
-                  disabled={connectionStatus === 'disconnected'}
+                  placeholder={
+                    connectionStatus === "disconnected"
+                      ? "Backend unavailable..."
+                      : "Ask me anything..."
+                  }
+                  disabled={connectionStatus === "disconnected"}
                   className="w-full px-4 py-3 border border-gray-200 rounded-2xl resize-none bg-white/90 min-h-[48px] max-h-32 scrollbar-hide overflow-y-hidden disabled:opacity-50 disabled:cursor-not-allowed"
                   rows="1"
                 />
               </div>
               <div className="flex items-center space-x-2">
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleFileUpload} 
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
                   accept=".jpg,.jpeg,.png,.pdf"
-                  className="hidden" 
+                  className="hidden"
                 />
-                <button 
-                  onClick={() => fileInputRef.current.click()} 
-                  disabled={connectionStatus === 'disconnected'}
+                <button
+                  onClick={() => fileInputRef.current.click()}
+                  disabled={connectionStatus === "disconnected"}
                   className="p-3 bg-white border border-gray-200 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Upload image or PDF"
                 >
                   <Image className="w-4 h-4 text-gray-600" />
                 </button>
-                <VoiceRecorder isRecording={isRecording} onToggleRecording={handleVoiceRecording} />
+                <VoiceRecorder
+                  isRecording={isRecording}
+                  onToggleRecording={handleVoiceRecording}
+                />
               </div>
-              <button 
-                onClick={handleSendMessage} 
-                disabled={(!inputValue.trim() && !selectedFile) || connectionStatus === 'disconnected' || isUploading} 
+              <button
+                onClick={handleSendMessage}
+                disabled={
+                  (!inputValue.trim() && !selectedFile) ||
+                  connectionStatus === "disconnected" ||
+                  isUploading
+                }
                 className="p-3 bg-gradient-to-r from-slate-700 to-slate-800 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isUploading ? (
@@ -482,7 +588,6 @@ const WalmartChatbot = () => {
               </button>
             </div>
           </div>
-
         </div>
       </div>
     </div>

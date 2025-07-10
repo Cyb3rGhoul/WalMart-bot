@@ -16,11 +16,14 @@ def respond(user_prompt):
     return model.generate_content(user_prompt).text
 def analyze_grocery_list(text):
     prompt = f"""
-You are an expert at understanding grocery receipts and lists. Given the following text, answer the following:
-1. Is this text a grocery list? (A grocery list is a list of items to buy, not a receipt, not a menu)
-2. If yes, extract the items and their quantities as a JSON array of key-value pairs, e.g.:
-   [{{"eggs": 2}}, {{"bread": 1}}]
-3. If not a grocery list, reply with: {{"message": "Not a grocery list"}}
+You are an expert at understanding grocery receipts and lists. You are having a conversation with a user to finalize their grocery list. Here is how the conversation should go:
+
+1. When the user provides a text, determine if it is a grocery list (a list of items to buy, not a receipt, not a menu).
+2. If it is a grocery list, extract the items and their quantities.
+3. Present the extracted list to the user in a normal, friendly form (not JSON) strictly, and ask: "Is this your final list or do you want to update it? Allow user to update the list"
+4. If the user provides an updated list, repeat the extraction and ask again if it's final or needs updating.
+5. If the user replies 'final', return the list in JSON form only, with no extra text.
+6. If the text is not a grocery list, reply with: {"message": "Not a grocery list"}
 
 Text:
 """

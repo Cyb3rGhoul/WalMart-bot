@@ -72,6 +72,7 @@ class ApiService {
         user_prompt: userPrompt,
         session_id: sessionId
       });
+
       
       return {
         success: true,

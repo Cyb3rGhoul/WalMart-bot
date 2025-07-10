@@ -1,6 +1,8 @@
 // Background script for Walmart Grocery Extension
 console.log('Walmart Grocery Extension background script loaded');
 
+let walmartTabId = null;
+
 // Listen for messages from the webpage
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
   console.log('Background script received message:', message);
@@ -20,7 +22,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('Content script is ready');
     sendResponse({ status: 'acknowledged' });
   }
-  
+  // Handle request to close Walmart tab
+  if (message.action === 'CLOSE_WALMART_TAB') {
+    if (walmartTabId !== null) {
+      chrome.tabs.remove(walmartTabId, () => {
+        if (chrome.runtime.lastError) {
+          console.error('Failed to close Walmart tab:', chrome.runtime.lastError);
+        } else {
+          console.log('Walmart tab closed successfully');
+        }
+        walmartTabId = null;
+      });
+    }
+  }
   return true;
 });
 
@@ -33,6 +47,7 @@ async function handleGroceryList(groceryList, sendResponse) {
       url: 'https://www.walmart.com',
       active: true
     });
+    walmartTabId = tab.id;
     
     console.log('Created Walmart tab:', tab.id);
     
