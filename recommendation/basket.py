@@ -4,6 +4,7 @@ from mlxtend.preprocessing import TransactionEncoder
 from mlxtend.frequent_patterns import apriori, fpgrowth, association_rules
 import os
 from flask_cors import CORS
+from gemini_function import extract_general_product_names
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True, resources={r"/*": {"origins": "http://localhost:3000"}})
@@ -85,9 +86,10 @@ def suggest_items_combined(user_cart, df, top_n=5):
 # API route
 @app.route('/recommend', methods=['POST'])
 def recommend():
-    data = request.get_json()
-    # print(data)
-
+    data1 = request.get_json()
+    print("data1",data1);
+    data = extract_general_product_names(data1);
+    print("data",data);
     # Accept both 'cart' and 'groceryList'
     if 'cart' in data:
         user_cart = [item.upper() for item in data['cart']]

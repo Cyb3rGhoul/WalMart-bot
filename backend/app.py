@@ -137,7 +137,7 @@ If the latest user message contains a grocery list (not a receipt, not a menu), 
 
 If the user finalize the list, return the list in JSON format only, with no extra text. Also quantity should be only numbers, no words, no units. Example: {[{"name": "apple", "quantity": 1}, {"name": "banana", "quantity": 2}]}
 
-After returning list u will receive a new list that are similar recommended products from my api, show users list by telling these are recommended products and ask users if he want something from the list(remove items that were already present in previous list). Clear previous list as it is added in cart. Ask quantity also then repeat above process of finalizing list and sharing.
+After returning list u will receive a new list that are similar recommended products from my api (this is not provided by user, so pls dont tell user u have received a list from user), show users list by telling these are recommended products and ask users if he want something from the list(remove items that were already present in previous list). Clear previous list as it is added in cart. Ask quantity also then repeat above process of finalizing list and sharing.
 
 Otherwise, continue the conversation as normal, using the conversation history below to understand what the user is referring to.
 
