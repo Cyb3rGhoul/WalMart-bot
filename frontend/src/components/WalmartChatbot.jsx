@@ -16,8 +16,8 @@ import {
 import Preloader from "./Preloader";
 import Message from "./Message";
 import VoiceRecorder from "./VoiceRecorder";
-// import { TbBrandWalmart } from 'react-icons/tb';
 import ApiService from "../services/apiService.js";
+const WALMART_LOGO_URL = "https://www.freeiconspng.com/uploads/walmart-logo-png-6.png";
 
 // Backend API configuration
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:5000";
@@ -323,7 +323,6 @@ const WalmartChatbot = () => {
         "image/jpeg",
         "image/jpg",
         "image/png",
-        "application/pdf",
       ];
       if (!allowedTypes.includes(file.type)) {
         alert("Please select a valid file type: JPEG, PNG, or PDF");
@@ -391,16 +390,23 @@ const WalmartChatbot = () => {
             <div className="flex items-center space-x-4">
               <div className="relative">
                 <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-lg">
-                  {/* <TbBrandWalmart className="w-full h-8 text-slate-700" /> */}
+                  <img
+                    src={WALMART_LOGO_URL}
+                    alt="Walmart"
+                    className="w-7 h-7 object-contain"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'block';
+                    }}
+                  />
                 </div>
                 <div
-                  className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm ${
-                    connectionStatus === "connected"
+                  className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white shadow-sm ${connectionStatus === "connected"
                       ? "bg-emerald-500"
                       : connectionStatus === "disconnected"
-                      ? "bg-red-500"
-                      : "bg-yellow-500"
-                  }`}
+                        ? "bg-red-500"
+                        : "bg-yellow-500"
+                    }`}
                 ></div>
               </div>
               <div>
@@ -422,11 +428,10 @@ const WalmartChatbot = () => {
             <div className="flex items-center space-x-2">
               <button
                 onClick={toggleSound}
-                className={`p-2.5 rounded-xl transition-all duration-200 ${
-                  isSoundEnabled
+                className={`p-2.5 rounded-xl transition-all duration-200 ${isSoundEnabled
                     ? "bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30"
                     : "bg-white/10 hover:bg-white/20"
-                } ${isSpeaking ? "animate-pulse" : ""}`}
+                  } ${isSpeaking ? "animate-pulse" : ""}`}
                 title={
                   isSoundEnabled
                     ? "Sound On - Click to mute"
@@ -550,17 +555,17 @@ const WalmartChatbot = () => {
                   rows="1"
                 />
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 mb-2">
                 <input
                   type="file"
                   ref={fileInputRef}
                   onChange={handleFileUpload}
-                  accept=".jpg,.jpeg,.png,.pdf"
+                  accept=".jpg,.jpeg,.png"
                   className="hidden"
                 />
                 <button
                   onClick={() => fileInputRef.current.click()}
-                  disabled={connectionStatus === "disconnected"}
+                  disabled={connectionStatus === "connected"}
                   className="p-3 bg-white border border-gray-200 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Upload image or PDF"
                 >
@@ -578,7 +583,7 @@ const WalmartChatbot = () => {
                   connectionStatus === "disconnected" ||
                   isUploading
                 }
-                className="p-3 bg-gradient-to-r from-slate-700 to-slate-800 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-3 mb-2 bg-gradient-to-r from-slate-700 to-slate-800 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isUploading ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>

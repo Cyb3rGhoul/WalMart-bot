@@ -4,6 +4,8 @@ import { Bot, User, Paperclip } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import axios from "axios";
 import ApiService from "../services/apiService.js";
+const WALMART_LOGO_URL = "https://www.freeiconspng.com/uploads/walmart-logo-png-6.png";
+
 
 const Message = ({
   message,
@@ -158,7 +160,22 @@ const Message = ({
             : "bg-gradient-to-br from-gray-600 to-gray-700"
         }`}
       >
-        {/* {isBot ? <TbBrandWalmart className="w-4 h-4 text-white" /> : <User className="w-4 h-4 text-white" />} */}
+        {isBot ? (
+          <>
+            <img 
+              src={WALMART_LOGO_URL} 
+              alt="Walmart" 
+              className="w-4 h-4 object-contain"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'block';
+              }}
+            />
+            <Bot className="w-4 h-4 text-white" style={{ display: 'none' }} />
+          </>
+        ) : (
+          <User className="w-4 h-4 text-white" />
+        )}
       </div>
       <div
         className={`max-w-xs sm:max-w-md lg:max-w-lg xl:max-w-xl ${
